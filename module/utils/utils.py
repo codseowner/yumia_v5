@@ -8,6 +8,7 @@ import openai
 from pymongo import DESCENDING
 import traceback
 
+load_dotenv()
 print("📌 [STEP] utils.py 読み込み開始")
 openai.api_key = os.getenv("OPENAI_API_KEY")
 print(f"📌 [ENV] OPENAI_API_KEY 読み込み結果: {'あり' if openai.api_key else 'なし'}")

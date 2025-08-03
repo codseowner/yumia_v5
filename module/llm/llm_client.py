@@ -4,6 +4,9 @@ import json
 import os
 import threading
 from datetime import datetime
+from nrclex import NRCLex#感情のスコア出す
+from translate import Translator#翻訳ライブラリー
+import MeCab
 
 from module.utils.utils import load_history, load_system_prompt_cached, load_emotion_prompt, load_dialogue_prompt, logger
 from module.params import OPENAI_MODEL, OPENAI_TEMPERATURE, OPENAI_TOP_P, OPENAI_MAX_TOKENS
@@ -92,39 +95,39 @@ def generate_gpt_response_from_history() -> tuple[str, dict]:
         })
 
     try:
-        logger.info("[INFO] OpenAI呼び出し開始")
-        response = client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                *formatted_history,
-                {"role": "user", "content": f"{emotion_text}\n\n{emotion_prompt}"}
-            ],
-            max_tokens=OPENAI_MAX_TOKENS,
-            temperature=OPENAI_TEMPERATURE,
-            top_p=OPENAI_TOP_P
-        )
-        logger.info("[INFO] OpenAI応答取得完了")
-        content = response.choices[0].message.content.strip()
-
-        fallback_emotion_data = {
-            "date": generation_time,
-            "データ種別": "emotion",
-            "重み": 10,
-            "主感情": "未定",
-            "構成比": {},
-            "状況": "履歴から感情未参照で応答生成",
-            "心理反応": "履歴のみで判断",
-            "関係性変化": "初期段階",
-            "関連": [],
-            "keywords": []
+        logger.info("NRCLex呼び出し開始")
+        # 翻訳 → 感情分析
+        translator = Translator(from_lang="ja", to_lang="en")
+        english_message = translator.translate(message)
+        text = NRCLex(english_message)
+        # 英語→日本語変換マッピング
+        key_mapping = {
+            'fear': '恐れ', 'anger': '怒り', 'anticip': '期待', 'trust': '信頼',
+            'surprise': '驚き', 'positive': '積極性', 'negative': '悲観',
+            'sadness': '悲しみ', 'disgust': '嫌悪', 'joy': '喜び',
         }
-
-        return content, fallback_emotion_data
-
+        # 感情構成比の整形
+        emotion = {key_mapping.get(k, k): v for k, v in text.affect_frequencies.items()}
+        # MeCabによる名詞抽出
+        mecab = MeCab.Tagger()
+        result = mecab.parseToNode(message)
+        taglist = []
+        while result:
+            word = result.surface
+            tag = result.feature.split(",")[0]
+            if tag == "名詞" and word:
+                taglist.append(word)
+            result = result.next
+        # fallback_emotion_data の構築
+        fallback_emotion_data = {
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "構成比": emotion,
+            "keywords": taglist
+        }
+        return "ok", fallback_emotion_data
     except Exception as e:
-        logger.error(f"[ERROR] OpenAI呼び出し失敗: {e}")
-        return "応答生成中にエラーが発生しました。", {}
+        logger.error(f"[ERROR] fallback_emotion_data生成失敗: {e}")
+        return "error", {}
 
 
 
@@ -253,6 +256,5 @@ def run_emotion_update_pipeline(new_vector: dict) -> tuple[str, dict]:
     except Exception as e:
         logger.error(f"[ERROR] 感情更新処理に失敗: {e}")
         return "感情更新に失敗しました。", {}
-
 
 

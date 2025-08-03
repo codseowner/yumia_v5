@@ -6,3 +6,7 @@ pymongo
 httpx
 jsonlines
 python-multipart
+NRCLex
+translate
+mecab-python3
+unidic-lite

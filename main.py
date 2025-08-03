@@ -5,6 +5,7 @@ import traceback
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel
+import uvicorn
 
 # モジュールパス追加
 # Add module path
@@ -60,11 +61,11 @@ async def chat(
         user_input = message
         logger.debug(f"📥 ユーザー入力取得完了: {user_input}") # User input successfully retrieved
 
-        if file:
-            logger.debug(f"📎 添付ファイル名: {file.filename}")
-            extracted_text = await handle_uploaded_file(file)
-            if extracted_text:
-                user_input += f"\n\n[添付ファイルの内容]:\n{extracted_text}"
+        # if file:
+            # logger.debug(f"📎 添付ファイル名: {file.filename}")
+            # extracted_text = await handle_uploaded_file(file)
+            # if extracted_text:
+                # user_input += f"\n\n[添付ファイルの内容]:\n{extracted_text}"
 
         append_history("user", user_input)
         logger.debug("📝 ユーザー履歴追加完了") # User history successfully appended
@@ -165,3 +166,4 @@ def process_and_cleanup_emotion_data(response_text: str):
     logger.info("🧹 感情データ保存後、忘却処理を実行します") # After saving emotion data, executing oblivion processing
     run_oblivion_cleanup_all()
     logger.info("✅ 感情データ保存＋忘却処理 完了") # Emotion data saving and oblivion processing completed
+uvicorn.run(app,host="localhost",port=8080)
